@@ -1,4 +1,7 @@
 faster-whisper
-jiwer
 av<16
+jiwer
 sounddevice
+moonshine-voice
+torch
+transformers
