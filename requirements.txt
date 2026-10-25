@@ -1,8 +1,6 @@
+moonshine-voice>=0.1.5
 faster-whisper
 av<16
 jiwer
-sounddevice
-moonshine-voice
-torch
-transformers
 gradio
+sounddevice
