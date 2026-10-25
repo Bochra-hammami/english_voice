@@ -1,9 +1,9 @@
-# English Voice
+Imagine two people speaking English, yet constantly asking *"sorry, can you repeat?"*: strong
+accents can make simple calls hard. **English Voice** listens to you, understands your
+words, and repeats them in a **clear, neutral voice** in your Google Meet call.
 
-Real-time accent bridge for video calls. When two English speakers with different
-accents (e.g. Indian and British) struggle to understand each other, English Voice
-listens to the speaker, transcribes what they say, and re-speaks it in a clear,
-neutral voice inside Google Meet (or Zoom / Teams).
+- **Code:** https://github.com/Bochra-hammami/english_voice
+- **Prototype demo (videos):** https://drive.google.com/drive/folders/1h79l8VcuUkRoUQr6QqgY-fg8VGALOBh0?usp=sharing
 
 ## How it works
 
@@ -15,6 +15,7 @@ Your voice → mic → speech recognition (Moonshine) → text → neutral voice
 - Runs **locally on CPU**: no GPU, no cloud, the audio never leaves the PC.
 - Each person who wants their voice converted runs the app on their own computer.
   The listener installs nothing.
+- Works with any call app where you choose a microphone (Meet, Zoom, Teams).
 
 ## Project structure
 
@@ -42,6 +43,11 @@ outils/         measurement scripts used to choose the model
    venv\Scripts\activate
    pip install -r requirements.txt
    ```
+   The `venv` is a private environment for this project's packages, so they don't mix
+   with other Python projects. Activate it every time you open a new terminal: you'll see
+   `(venv)` at the start of the line. If PowerShell blocks the activation, run
+   `Set-ExecutionPolicy -Scope Process Bypass` first.
+
    Models download automatically on first launch (internet needed once).
 
 ## Interface 1: file test (web page)
@@ -50,8 +56,8 @@ outils/         measurement scripts used to choose the model
 python -m interfaces.fichier
 ```
 Open the address shown (http://127.0.0.1:7860), drop an mp3/wav, optionally paste the
-reference text, click **▶ Lancer**. The audio plays and the text appears phrase by phrase,
-with latency per phrase and the WER at the end.
+reference text, and click **Lancer**. The audio plays and the text appears phrase by
+phrase, with latency per phrase and the WER at the end.
 
 ## Interface 2: Google Meet
 
@@ -101,8 +107,8 @@ MIT licence, and the same library provides the neutral voice.
 - Choose a lighter model size for low-end PCs.
 - Installer that sets up the virtual microphone automatically.
 - Push-to-talk mode and an in-app mute button.
-
-## Licences
-
-Moonshine models and library: MIT. Test audio (Speech Accent Archive): CC BY-NC-SA,
-used for evaluation only, not included in this repository.
+- **Browser extension for Google Meet:** turn English Voice into a Chrome extension that
+  plugs directly into the Meet page, with no virtual cable and no Python install. Users
+  would simply add the extension and turn it on during a call. This requires running the
+  speech models inside the browser (or linking the extension to a small local app), which
+  is the main technical challenge.
