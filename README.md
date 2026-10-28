@@ -1,3 +1,10 @@
+---
+title: English Voice
+sdk: gradio
+sdk_version: 6.30.0
+app_file: main.py
+pinned: false
+---
 ## English Voice
 Imagine two people speaking English, yet constantly asking *"sorry, can you repeat?"*: strong
 accents can make simple calls hard. **English Voice** listens to you, understands your
