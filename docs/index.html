@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>English Voice</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#5f6878; --line:#dde1e8; --accent:#1f5fae; --accent-text:#fff; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#12151b; --card:#1b2029; --text:#e6e9ef; --muted:#9aa3b2; --line:#2c3340; --accent:#5b9be8; --accent-text:#0d1117; --code:#232a35; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  label { font-weight:600; display:block; margin-bottom:6px; }
+  input[type=file], textarea { width:100%; }
+  textarea { min-height:90px; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  button { background:var(--accent); color:var(--accent-text); border:0; border-radius:8px; padding:12px 20px; font:600 16px system-ui; cursor:pointer; width:100%; }
+  button:disabled { opacity:.5; cursor:default; }
+  audio { width:100%; margin-top:12px; }
+  .status { color:var(--muted); font-size:14px; margin-top:10px; min-height:20px; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:8px; }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .2s; }
+  #live { font-family:ui-monospace, Consolas, monospace; font-size:14px; white-space:pre-wrap; background:var(--code); border-radius:8px; padding:12px; min-height:120px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px) { .row { grid-template-columns:1fr; } }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .metrics td:first-child { color:var(--muted); width:55%; }
+  .metrics td:last-child { font-weight:600; }
+  footer { color:var(--muted); font-size:13px; margin-top:24px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>English Voice</h1>
+  <p class="sub">Dépose un vocal en anglais : il se joue et le texte apparaît phrase par phrase, comme en direct. Tout est calculé dans ton navigateur, le son ne quitte pas ton ordinateur.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="file">Fichier audio (mp3, wav)</label>
+        <input id="file" type="file" accept="audio/*,video/*">
+      </div>
+      <div>
+        <label for="ref">Texte de référence (optionnel, pour le WER)</label>
+        <textarea id="ref" placeholder="Colle ici ce qui est réellement dit…"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button id="go" disabled>Chargement du modèle…</button></div>
+    <div class="bar"><div id="progress"></div></div>
+    <div class="status" id="status">Premier chargement : le modèle (quelques dizaines de Mo) est téléchargé une seule fois, puis gardé en cache.</div>
+    <audio id="player"></audio>
+  </div>
+
+  <div class="card">
+    <label>Texte en direct</label>
+    <div id="live"></div>
+  </div>
+
+  <div class="card">
+    <label>Métriques</label>
+    <table class="metrics"><tbody id="metrics"><tr><td>En attente d'un fichier</td><td></td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <label>Que mesurent les métriques ?</label>
+    <table>
+      <tr><th>Métrique</th><th>Ce qu'elle mesure</th><th>Bon résultat</th></tr>
+      <tr><td>Durée de la parole</td><td>Combien de temps dure le vocal.</td><td>-</td></tr>
+      <tr><td>Latence (par phrase)</td><td>Temps entre le moment où la personne finit de dire une phrase et le moment où elle apparaît. C'est le retard que ressentirait l'autre personne dans un appel.</td><td>&lt; 2 s</td></tr>
+      <tr><td>Latence moyenne / max</td><td>La moyenne de toutes les latences, et la pire. Le max montre les moments où le système décroche.</td><td>moy &lt; 2 s, max &lt; 4 s</td></tr>
+      <tr><td>Délai après la fin</td><td>Après que la personne s'est tue, combien de temps il faut pour voir la dernière phrase.</td><td>&lt; 2 s</td></tr>
+      <tr><td>Phrases</td><td>Nombre de morceaux découpés (à chaque pause dans la voix).</td><td>-</td></tr>
+      <tr><td>WER (Word Error Rate)</td><td>Pourcentage de mots faux par rapport au texte de référence : mots remplacés, oubliés ou ajoutés, divisés par le nombre de mots attendus. Exemple : 7 erreurs sur 70 mots = 10 %.</td><td>&lt; 10 %</td></tr>
+    </table>
+  </div>
+
+  <footer>Modèle : Moonshine base (ONNX) via transformers.js. Code : <a href="https://github.com/Bochra-hammami/english_voice">github.com/Bochra-hammami/english_voice</a></footer>
+</main>
+
+<script type="module">
+// ---------- Le modèle tourne dans un Web Worker, pour ne pas bloquer la page ----------
+const WORKER_CODE = `
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+const MODEL = "onnx-community/moonshine-base-ONNX";
+let asr = null;
+const progress = (p) => { if (p.status === "progress") postMessage({ type: "progress", file: p.file, value: p.progress }); };
+async function load() {
+  const essais = [];
+  if (self.navigator && navigator.gpu) essais.push({ device: "webgpu", dtype: { encoder_model: "fp32", decoder_model_merged: "q4" } });
+  essais.push({ device: "wasm", dtype: { encoder_model: "fp32", decoder_model_merged: "q8" } });
+  essais.push({ device: "wasm", dtype: "fp32" });
+  for (const opts of essais) {
+    try {
+      asr = await pipeline("automatic-speech-recognition", MODEL, { ...opts, progress_callback: progress });
+      await asr(new Float32Array(16000));              // échauffement
+      postMessage({ type: "ready", device: opts.device });
+      return;
+    } catch (e) { console.warn("Échec avec", opts, e); }
+  }
+  postMessage({ type: "error", message: "Impossible de charger le modèle dans ce navigateur." });
+}
+onmessage = async (e) => {
+  const { id, audio } = e.data;
+  const out = await asr(audio);
+  postMessage({ type: "result", id, text: (out.text || "").trim() });
+};
+load();
+`;
+const worker = new Worker(URL.createObjectURL(new Blob([WORKER_CODE], { type: "text/javascript" })), { type: "module" });
+
+const $ = (id) => document.getElementById(id);
+const SR = 16000;
+let pending = new Map(), nextId = 0, device = "";
+
+worker.onmessage = (e) => {
+  const m = e.data;
+  if (m.type === "progress") { $("progress").style.width = (m.value || 0) + "%"; $("status").textContent = "Téléchargement du modèle : " + m.file; }
+  else if (m.type === "ready") { device = m.device; $("progress").style.width = "100%"; $("status").textContent = "Modèle prêt (" + (device === "webgpu" ? "carte graphique" : "processeur") + "). Choisis un fichier."; $("go").textContent = "Lancer"; $("go").disabled = !$("file").files.length; }
+  else if (m.type === "error") { $("status").textContent = m.message + " Essaie avec Chrome ou Edge récent."; }
+  else if (m.type === "result") { pending.get(m.id)(m.text); pending.delete(m.id); }
+};
+const transcribe = (audio) => new Promise((res) => { const id = nextId++; pending.set(id, res); worker.postMessage({ id, audio }, [audio.buffer]); });
+
+$("file").onchange = () => { if ($("go").textContent === "Lancer") $("go").disabled = !$("file").files.length; };
+
+// ---------- Lecture du fichier en audio 16 kHz mono ----------
+async function decode(file) {
+  const ctx = new AudioContext({ sampleRate: SR });
+  const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+  ctx.close();
+  const out = new Float32Array(buf.length);
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) out[i] += d[i] / buf.numberOfChannels; }
+  return out;
+}
+
+// ---------- Découpage en phrases, à chaque pause de la voix ----------
+function segmenter(audio) {
+  const F = Math.round(0.03 * SR);                       // trames de 30 ms
+  const rms = [];
+  for (let i = 0; i + F <= audio.length; i += F) { let s = 0; for (let j = i; j < i + F; j++) s += audio[j] * audio[j]; rms.push(Math.sqrt(s / F)); }
+  const tri = [...rms].sort((a, b) => a - b);
+  const seuil = Math.max(0.006, tri[Math.floor(tri.length * 0.2)] * 3);   // bruit de fond x 3
+  const PAUSE = Math.round(0.5 / 0.03), MIN = 1.5, MAX = 15;
+  let segs = [], debut = -1, silence = 0;
+  rms.forEach((v, k) => {
+    if (v > seuil) { if (debut < 0) debut = k; silence = 0; }
+    else if (debut >= 0 && ++silence >= PAUSE) { segs.push([debut, k - silence + 1]); debut = -1; silence = 0; }
+  });
+  if (debut >= 0) segs.push([debut, rms.length]);
+  segs = segs.map(([a, b]) => [Math.max(0, a * 0.03 - 0.15), Math.min(audio.length / SR, b * 0.03 + 0.15)]);
+  const fusion = [];                                      // les morceaux trop courts rejoignent le suivant
+  for (const s of segs) { const last = fusion[fusion.length - 1]; if (last && (last[1] - last[0] < MIN || s[1] - s[0] < MIN) && s[1] - last[0] <= MAX) last[1] = s[1]; else fusion.push([...s]); }
+  const final = [];                                       // les morceaux trop longs sont coupés
+  for (const [a, b] of fusion) for (let t = a; t < b; t += MAX) final.push([t, Math.min(b, t + MAX)]);
+  return final.length ? final : [[0, audio.length / SR]];
+}
+
+// ---------- WER, même nettoyage que dans l'app Python ----------
+const NOMBRES = { 0:"zero",1:"one",2:"two",3:"three",4:"four",5:"five",6:"six",7:"seven",8:"eight",9:"nine",10:"ten" };
+const mots = (t) => t.toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, " ").split(/\s+/).filter(Boolean).map((w) => NOMBRES[w] || w);
+function wer(ref, hyp) {
+  const r = mots(ref), h = mots(hyp);
+  if (!r.length) return 0;
+  let prev = Array.from({ length: h.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= r.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= h.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (r[i - 1] === h[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[h.length] / r.length;
+}
+
+const attendre = (cond) => new Promise((res) => { const f = () => (cond() ? res() : setTimeout(f, 50)); f(); });
+
+// ---------- Simulation du direct ----------
+$("go").onclick = async () => {
+  const file = $("file").files[0];
+  if (!file) return;
+  $("go").disabled = true; $("live").textContent = ""; $("metrics").innerHTML = "<tr><td>Écoute en cours…</td><td></td></tr>";
+  $("status").textContent = "Lecture du fichier…";
+  const audio = await decode(file);
+  const duree = audio.length / SR;
+  const segs = segmenter(audio);
+
+  const player = $("player");
+  player.src = URL.createObjectURL(file);
+  await player.play();
+  const t0 = performance.now();
+  const ecoule = () => (performance.now() - t0) / 1000;
+  $("status").textContent = "Écoute en cours (" + segs.length + " morceaux)…";
+
+  const textes = [], latences = [];
+  let instant = 0;
+  for (const [a, b] of segs) {
+    await attendre(() => ecoule() >= b);                  // on attend que la phrase ait été "dite"
+    const morceau = audio.slice(Math.floor(a * SR), Math.floor(b * SR));
+    const texte = await transcribe(morceau);
+    instant = ecoule();
+    if (!texte) continue;
+    const lat = instant - b;
+    textes.push(texte); latences.push(lat);
+    $("live").textContent += `[${instant.toFixed(1).padStart(5)}s] ${texte}    (latence ${lat.toFixed(1)}s)\n`;
+  }
+
+  const moy = latences.reduce((s, x) => s + x, 0) / Math.max(latences.length, 1);
+  const lignes = [
+    ["Durée de la parole", duree.toFixed(1) + " s"],
+    ["Latence moyenne / max", moy.toFixed(1) + " s / " + Math.max(0, ...latences).toFixed(1) + " s"],
+    ["Délai après la fin", Math.max(instant - duree, 0).toFixed(1) + " s"],
+    ["Phrases", String(textes.length)],
+    ["Calcul sur", device === "webgpu" ? "carte graphique (WebGPU)" : "processeur (WASM)"],
+  ];
+  const ref = $("ref").value.trim();
+  if (ref) lignes.push(["WER", (wer(ref, textes.join(" ")) * 100).toFixed(1) + " %"]);
+  $("metrics").innerHTML = lignes.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+  $("status").textContent = "Terminé.";
+  $("go").disabled = false;
+};
+</script>
+</body>
+</html>
